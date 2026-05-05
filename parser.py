@@ -29,7 +29,7 @@ def init_parsed_table(db_path="siem.db"):
 def parse_events(db_path="siem.db"):
     conn = sqlite3.connect(db_path)
 
-    # Henuz parse edilmeyenleri al
+    
     rows = conn.execute("""
         SELECT e.event_id, e.source, e.event_type, e.timestamp, e.host, e.data
         FROM events e

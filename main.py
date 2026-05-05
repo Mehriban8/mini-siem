@@ -43,7 +43,7 @@ def cleanup_old_data(db_path="siem.db", days=7):
 def collect_and_process():
     while True:
         try:
-            # 1. Collect
+            
             events = []
             for proc in psutil.process_iter(['pid', 'name', 'username']):
                 try:
@@ -89,7 +89,7 @@ def collect_and_process():
             except psutil.AccessDenied:
                 pass
 
-            # 2. Save events
+            
             db = sqlite3.connect(DB_PATH)
             for event in events:
                 db.execute(
@@ -100,10 +100,10 @@ def collect_and_process():
             db.commit()
             db.close()
 
-            # 3. Parse
+            
             parse_events(DB_PATH)
 
-            # 4. Rule Engine
+            
             rules = load_rules()
             db = sqlite3.connect(DB_PATH)
             rows = db.execute("""
@@ -156,10 +156,10 @@ if __name__ == "__main__":
     init_db()
     print("[SIEM] Starting...")
 
-    # Collector + Parser + Engine — arxa planda
+    
     t = threading.Thread(target=collect_and_process, daemon=True)
     t.start()
 
-    # Dashboard — əsas thread
+    
     from dashboard.app import app
     app.run(debug=False, port=5000)

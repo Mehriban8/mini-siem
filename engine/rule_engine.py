@@ -52,7 +52,7 @@ def run_engine(db_path="siem.db"):
 
     conn = sqlite3.connect(db_path)
 
-    # Henuz yoxlanilmamis parsed eventleri al
+    
     rows = conn.execute("""
         SELECT p.event_id, p.source, p.event_type, p.timestamp,
                p.host, p.process, p.username,
@@ -83,11 +83,11 @@ def run_engine(db_path="siem.db"):
         }
 
         for rule in rules:
-            # Source uygunlugunu yoxla
+            
             if rule.get("source") and rule["source"] != event["source"]:
                 continue
 
-            # Condition yoxla
+            
             if check_condition(rule["condition"], event):
                 alert = (
                     str(uuid.uuid4()),
