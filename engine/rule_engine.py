@@ -116,7 +116,3 @@ def run_engine(db_path="siem.db"):
         print("[Rule Engine] No alerts triggered.")
 
     conn.close()
-
-
-init_alerts_table()
-run_engine()
