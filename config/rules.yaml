@@ -1,0 +1,48 @@
+rules:
+  - id: "R001"
+    name: "Suspicious Process"
+    description: "Known malicious process detected"
+    source: "process"
+    condition:
+      type: "match"
+      field: "process"
+      values:
+        - "mimikatz.exe"
+        - "procdump.exe"
+        - "nc.exe"
+        - "ncat.exe"
+        - "meterpreter.exe"
+        - "psexec.exe"
+        - "wce.exe"
+        - "fgdump.exe"
+        - "pwdump.exe"
+        - "cobalt strike.exe"
+        - "empire.exe"
+    severity: "critical"
+
+  - id: "R002"
+    name: "Suspicious Port"
+    description: "Connection to known malicious port"
+    source: "network"
+    condition:
+      type: "match"
+      field: "remote_port"
+      values:
+        - 4444
+        - 1337
+        - 31337
+        - 9001
+        - 6666
+        - 6667
+        - 1234
+    severity: "high"
+
+  - id: "R003"
+    name: "High Port Connection"
+    description: "Unusual high port connection"
+    source: "network"
+    condition:
+      type: "greater_than"
+      field: "remote_port"
+      value: 49151
+    severity: "medium"

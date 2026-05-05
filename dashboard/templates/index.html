@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini-SIEM Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #070b14;
+      color: #c8dce8;
+      font-family: 'Courier New', monospace;
+      padding: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 0.5px solid #1e3a5f;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #00d4ff;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: #e0f0ff;
+      letter-spacing: 2px;
+    }
+
+    .live-badge {
+      font-size: 10px;
+      color: #00d4ff;
+      background: rgba(0,212,255,0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 0.5px solid rgba(0,212,255,0.3);
+    }
+
+    .timestamp { font-size: 11px; color: #4a7a9b; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: rgba(0,212,255,0.04);
+      border: 0.5px solid rgba(0,212,255,0.15);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .stat-card.danger {
+      background: rgba(226,75,74,0.06);
+      border-color: rgba(226,75,74,0.25);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: #4a7a9b;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 500;
+      color: #00d4ff;
+    }
+
+    .stat-card.danger .stat-value { color: #e24b4a; }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .panel {
+      background: rgba(0,212,255,0.02);
+      border: 0.5px solid #1e3a5f;
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .panel-title {
+      font-size: 10px;
+      color: #4a7a9b;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+    }
+
+    .alert-item {
+      padding: 8px 10px;
+      background: rgba(226,75,74,0.07);
+      border-left: 2px solid #e24b4a;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .alert-item:hover { background: rgba(226,75,74,0.14); }
+
+    .alert-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: #e24b4a;
+    }
+
+    .alert-meta {
+      font-size: 10px;
+      color: #4a7a9b;
+      margin-top: 3px;
+    }
+
+    .conn-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 5px 0;
+      border-bottom: 0.5px solid #1e3a5f;
+    }
+
+    .conn-row:last-child { border-bottom: none; }
+    .conn-process { color: #7ab3cc; cursor: pointer; }
+    .conn-process:hover { color: #00d4ff; text-decoration: underline; }
+    .conn-ip { color: #4a7a9b; }
+    .conn-ok { color: #00d4ff; }
+    .conn-warn { color: #e24b4a; }
+
+    canvas { max-height: 200px; }
+
+    .filter-btn {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 0.5px solid #1e3a5f;
+      background: transparent;
+      color: #4a7a9b;
+      cursor: pointer;
+    }
+
+    .filter-btn:hover { border-color: #00d4ff; color: #00d4ff; }
+    .filter-btn.active { border-color: #00d4ff; color: #00d4ff; background: rgba(0,212,255,0.08); }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: #0d1626;
+      border: 0.5px solid #1e3a5f;
+      border-radius: 10px;
+      padding: 1.5rem;
+      width: 480px;
+      max-width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 0.5px solid #1e3a5f;
+    }
+
+    .modal-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e24b4a;
+    }
+
+    .modal-title.blue { color: #00d4ff; }
+
+    .modal-close {
+      font-size: 18px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: #4a7a9b;
+    }
+
+    .modal-close:hover { color: #e0f0ff; }
+
+    .modal-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 6px 0;
+      border-bottom: 0.5px solid #1e3a5f;
+    }
+
+    .modal-row:last-child { border-bottom: none; }
+    .modal-key { color: #4a7a9b; }
+    .modal-val { color: #c8dce8; }
+
+    .modal-section {
+      font-size: 10px;
+      color: #4a7a9b;
+      letter-spacing: 1px;
+      margin: 12px 0 8px;
+    }
+
+    .proc-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 4px 0;
+      border-bottom: 0.5px solid #1e3a5f;
+      cursor: pointer;
+    }
+
+    .proc-row:hover { color: #00d4ff; }
+    .proc-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="dot"></div>
+      <span class="logo-text">MINI-SIEM</span>
+      <span class="live-badge">● LIVE</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <a href="/api/export/alerts" 
+         style="font-size:10px; color:#00d4ff; border:0.5px solid rgba(0,212,255,0.3); 
+                padding:3px 10px; border-radius:4px; text-decoration:none; letter-spacing:1px;">
+        EXPORT CSV
+      </a>
+      <span class="timestamp" id="ts">--</span>
+    </div>
+  </header>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">TOTAL EVENTS</div>
+      <div class="stat-value" id="total-events">--</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-label">ALERTS</div>
+      <div class="stat-value" id="total-alerts">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">PROCESSES</div>
+      <div class="stat-value" id="total-processes">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">CONNECTIONS</div>
+      <div class="stat-value" id="total-connections">--</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="panel">
+      <div class="panel-title">TOP PROCESSES — click to inspect</div>
+      <div id="proc-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">ALERT SEVERITY</div>
+      <canvas id="pieChart"></canvas>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-title">RECENT ALERTS — click for details</div>
+      <div id="alerts-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">ACTIVE CONNECTIONS — click process to inspect</div>
+      <div id="connections-list"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom: 1.5rem;">
+    <div class="panel-title">ALERT HISTORY</div>
+    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+      <button class="filter-btn active" onclick="filterAlerts(this, '')">ALL</button>
+      <button class="filter-btn" onclick="filterAlerts(this, 'critical')">CRITICAL</button>
+      <button class="filter-btn" onclick="filterAlerts(this, 'high')">HIGH</button>
+      <button class="filter-btn" onclick="filterAlerts(this, 'medium')">MEDIUM</button>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- Alert modal -->
+  <div class="modal-overlay" id="alert-modal-overlay" onclick="closeAlertModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="alert-modal-title">--</span>
+        <button class="modal-close" onclick="closeAlertModal()">✕</button>
+      </div>
+      <div id="alert-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Process inspector modal -->
+  <div class="modal-overlay" id="proc-modal-overlay" onclick="closeProcModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title blue" id="proc-modal-title">--</span>
+        <button class="modal-close" onclick="closeProcModal()">✕</button>
+      </div>
+      <div id="proc-modal-body"></div>
+    </div>
+  </div>
+
+<script>
+  const SUSPICIOUS_PORTS = [4444, 1337, 31337, 9001];
+  const severityColors = { critical: '#e24b4a', high: '#378ADD', medium: '#EF9F27', low: '#1D9E75' };
+  let pieChart;
+
+  async function loadStats() {
+    const res = await fetch('/api/stats');
+    const data = await res.json();
+    document.getElementById('total-events').textContent = data.total_events.toLocaleString();
+    document.getElementById('total-alerts').textContent = data.total_alerts;
+    document.getElementById('total-processes').textContent = data.total_processes.toLocaleString();
+    document.getElementById('total-connections').textContent = data.total_connections;
+    document.getElementById('ts').textContent = new Date().toLocaleString();
+  }
+
+  async function loadTopProcesses() {
+    const res = await fetch('/api/top_processes');
+    const data = await res.json();
+    const max = data[0]?.count || 1;
+    const el = document.getElementById('proc-list');
+    el.innerHTML = data.map(d => `
+      <div class="proc-row" onclick="openProcModal('${d.process}')">
+        <span style="color:#7ab3cc; min-width:140px;">${d.process}</span>
+        <div style="flex:1; margin: 0 10px; height:6px; background:rgba(255,255,255,0.05); border-radius:3px; align-self:center;">
+          <div style="width:${Math.round(d.count/max*100)}%; height:100%; background:linear-gradient(90deg,#00d4ff,#0078a8); border-radius:3px;"></div>
+        </div>
+        <span style="color:#4a7a9b; font-size:11px;">${d.count}</span>
+      </div>
+    `).join('');
+  }
+
+  async function loadPieChart() {
+    const res = await fetch('/api/severity');
+    const data = await res.json();
+    const labels = data.map(d => d.severity);
+    const values = data.map(d => d.count);
+    const colors = labels.map(l => severityColors[l] || '#4a7a9b');
+    if (pieChart) pieChart.destroy();
+    pieChart = new Chart(document.getElementById('pieChart'), {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors.map(c => c + '33'),
+          borderColor: colors,
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { labels: { color: '#7ab3cc', font: { size: 11 }, boxWidth: 12 } }
+        }
+      }
+    });
+  }
+
+  async function loadAlerts() {
+    const res = await fetch('/api/alerts');
+    const data = await res.json();
+    const el = document.getElementById('alerts-list');
+    if (!data.length) {
+      el.innerHTML = '<div style="font-size:12px;color:#4a7a9b;">No alerts yet.</div>';
+      return;
+    }
+    el.innerHTML = data.slice(0, 5).map(a => `
+      <div class="alert-item" onclick='openAlertModal(${JSON.stringify(a)})'>
+        <div class="alert-title">${a.severity.toUpperCase()} — ${a.rule_name}</div>
+        <div class="alert-meta">${a.process || a.remote_ip || 'unknown'} · ${a.timestamp.slice(11,19)}</div>
+      </div>
+    `).join('');
+  }
+
+  async function loadConnections() {
+    const res = await fetch('/api/connections');
+    const data = await res.json();
+    const el = document.getElementById('connections-list');
+    el.innerHTML = data.map(c => {
+      const warn = SUSPICIOUS_PORTS.includes(c.remote_port);
+      const label = c.domain || c.remote_ip;
+      return `
+        <div class="conn-row">
+          <span class="conn-process" onclick="openProcModal('${c.process}')">${c.process || 'unknown'}</span>
+          <span class="conn-ip" title="${c.remote_ip}">${label}:${c.remote_port}</span>
+          <span class="${warn ? 'conn-warn' : 'conn-ok'}">${warn ? '!' : 'ok'}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function filterAlerts(btn, severity) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const url = severity ? `/api/alerts/history?severity=${severity}` : '/api/alerts/history';
+    const res = await fetch(url);
+    const data = await res.json();
+    const el = document.getElementById('history-list');
+    if (!data.length) {
+      el.innerHTML = '<div style="font-size:12px;color:#4a7a9b;">No alerts found.</div>';
+      return;
+    }
+    el.innerHTML = data.map(a => {
+      const color = severityColors[a.severity] || '#4a7a9b';
+      return `
+        <div class="alert-item" style="border-left-color:${color};" onclick='openAlertModal(${JSON.stringify(a)})'>
+          <div class="alert-title" style="color:${color};">${a.severity.toUpperCase()} — ${a.rule_name}</div>
+          <div class="alert-meta">${a.process || a.remote_ip || 'unknown'} · ${a.timestamp.slice(0,19).replace('T',' ')}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function openAlertModal(a) {
+    document.getElementById('alert-modal-title').textContent = `${a.severity.toUpperCase()} — ${a.rule_name}`;
+    document.getElementById('alert-modal-body').innerHTML = `
+      <div class="modal-row"><span class="modal-key">Rule ID</span><span class="modal-val">${a.rule_id || '--'}</span></div>
+      <div class="modal-row"><span class="modal-key">Severity</span><span class="modal-val">${a.severity}</span></div>
+      <div class="modal-row"><span class="modal-key">Process</span><span class="modal-val">${a.process || '--'}</span></div>
+      <div class="modal-row"><span class="modal-key">Remote IP</span><span class="modal-val">${a.remote_ip || '--'}</span></div>
+      <div class="modal-row"><span class="modal-key">Remote Port</span><span class="modal-val">${a.remote_port || '--'}</span></div>
+      <div class="modal-row"><span class="modal-key">Time</span><span class="modal-val">${a.timestamp}</span></div>
+      <div class="modal-row"><span class="modal-key">Description</span><span class="modal-val">${a.description || '--'}</span></div>
+    `;
+    document.getElementById('alert-modal-overlay').classList.add('active');
+  }
+
+  function closeAlertModal(e) {
+    if (!e || e.target === document.getElementById('alert-modal-overlay')) {
+      document.getElementById('alert-modal-overlay').classList.remove('active');
+    }
+  }
+
+  async function openProcModal(name) {
+    if (!name || name === 'unknown') return;
+    document.getElementById('proc-modal-title').textContent = name;
+    document.getElementById('proc-modal-body').innerHTML = '<div style="color:#4a7a9b;font-size:12px;">Loading...</div>';
+    document.getElementById('proc-modal-overlay').classList.add('active');
+
+    const res = await fetch(`/api/process/${encodeURIComponent(name)}`);
+    if (!res.ok) {
+      document.getElementById('proc-modal-body').innerHTML = '<div style="color:#4a7a9b;font-size:12px;">No data found.</div>';
+      return;
+    }
+    const d = await res.json();
+
+    const conns = d.connections.length ? d.connections.map(c => `
+      <div class="modal-row">
+        <span class="modal-val">${c.remote_ip}:${c.remote_port}</span>
+        <span class="modal-key">${c.status}</span>
+      </div>
+    `).join('') : '<div style="font-size:11px;color:#4a7a9b;">No network connections.</div>';
+
+    const alrts = d.alerts.length ? d.alerts.map(a => {
+      const color = severityColors[a.severity] || '#4a7a9b';
+      return `
+        <div class="modal-row">
+          <span style="color:${color};">${a.severity.toUpperCase()} — ${a.rule_name}</span>
+          <span class="modal-key">${a.timestamp.slice(11,19)}</span>
+        </div>
+      `;
+    }).join('') : '<div style="font-size:11px;color:#4a7a9b;">No alerts.</div>';
+
+    document.getElementById('proc-modal-body').innerHTML = `
+      <div class="modal-row"><span class="modal-key">Username</span><span class="modal-val">${d.username || '--'}</span></div>
+      <div class="modal-row"><span class="modal-key">Seen count</span><span class="modal-val">${d.seen_count}</span></div>
+      <div class="modal-row"><span class="modal-key">First seen</span><span class="modal-val">${d.first_seen?.slice(0,19).replace('T',' ') || '--'}</span></div>
+      <div class="modal-row"><span class="modal-key">Last seen</span><span class="modal-val">${d.last_seen?.slice(0,19).replace('T',' ') || '--'}</span></div>
+      <div class="modal-section">NETWORK CONNECTIONS</div>
+      ${conns}
+      <div class="modal-section">ALERTS</div>
+      ${alrts}
+    `;
+  }
+
+  function closeProcModal(e) {
+    if (!e || e.target === document.getElementById('proc-modal-overlay')) {
+      document.getElementById('proc-modal-overlay').classList.remove('active');
+    }
+  }
+
+  async function refresh() {
+    await Promise.all([loadStats(), loadTopProcesses(), loadPieChart(), loadAlerts(), loadConnections()]);
+    filterAlerts(document.querySelector('.filter-btn.active'), '');
+  }
+
+  refresh();
+  setInterval(refresh, 30000);
+
+  async function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  }
+
+  let knownAlertIds = new Set();
+
+  async function checkNewAlerts() {
+    const res = await fetch('/api/alerts');
+    const data = await res.json();
+    data.forEach(alert => {
+      const id = alert.timestamp + alert.rule_name;
+      if (!knownAlertIds.has(id)) {
+        knownAlertIds.add(id);
+        if (knownAlertIds.size > 1 && Notification.permission === 'granted') {
+          const n = new Notification(
+            `${alert.severity.toUpperCase()} — ${alert.rule_name}`,
+            { body: `${alert.process || alert.remote_ip || 'unknown'}` }
+          );
+          setTimeout(() => n.close(), 6000);
+        }
+      }
+    });
+  }
+
+  requestNotificationPermission();
+  setInterval(checkNewAlerts, 30000);
+  checkNewAlerts();
+</script>
+</body>
+</html>

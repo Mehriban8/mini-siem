@@ -1,0 +1,5 @@
+siem.db
+venv/
+__pycache__/
+*.pyc
+data/
