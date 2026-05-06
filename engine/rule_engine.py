@@ -1,5 +1,4 @@
 import sqlite3
-import json
 import uuid
 import yaml
 from datetime import datetime
@@ -44,59 +43,3 @@ def check_condition(condition, event):
         return int(value) > int(condition["value"])
 
     return False
-
-
-
-    print(f"[Rule Engine] {len(rows)} events to check.")
-
-    alerts = []
-    for row in rows:
-        event = {
-            "event_id":   row[0],
-            "source":     row[1],
-            "event_type": row[2],
-            "timestamp":  row[3],
-            "host":       row[4],
-            "process":    row[5],
-            "username":   row[6],
-            "local_ip":   row[7],
-            "local_port": row[8],
-            "remote_ip":  row[9],
-            "remote_port":row[10],
-            "status":     row[11]
-        }
-
-        for rule in rules:
-            
-            if rule.get("source") and rule["source"] != event["source"]:
-                continue
-
-            
-            if check_condition(rule["condition"], event):
-                alert = (
-                    str(uuid.uuid4()),
-                    rule["id"],
-                    rule["name"],
-                    rule["severity"],
-                    event["event_id"],
-                    datetime.now().isoformat(),
-                    rule["description"],
-                    event.get("process"),
-                    event.get("remote_ip"),
-                    event.get("remote_port")
-                )
-                alerts.append(alert)
-                print(f"[ALERT] {rule['severity'].upper()} — "
-                      f"{rule['name']} — {event.get('process')}")
-
-    if alerts:
-        conn.executemany("""
-            INSERT OR IGNORE INTO alerts VALUES
-            (?,?,?,?,?,?,?,?,?,?)
-        """, alerts)
-        conn.commit()
-        print(f"[Rule Engine] {len(alerts)} alerts saved.")
-    else:
-        print("[Rule Engine] No alerts triggered.")
-
-    conn.close()
