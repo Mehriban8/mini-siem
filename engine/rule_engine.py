@@ -46,22 +46,6 @@ def check_condition(condition, event):
     return False
 
 
-def run_engine(db_path="siem.db"):
-    rules = load_rules()
-    print(f"[Rule Engine] {len(rules)} rules loaded.")
-
-    conn = sqlite3.connect(db_path)
-
-    
-    rows = conn.execute("""
-        SELECT p.event_id, p.source, p.event_type, p.timestamp,
-               p.host, p.process, p.username,
-               p.local_ip, p.local_port,
-               p.remote_ip, p.remote_port, p.status
-        FROM parsed_events p
-        LEFT JOIN alerts a ON p.event_id = a.event_id
-        WHERE a.event_id IS NULL
-    """).fetchall()
 
     print(f"[Rule Engine] {len(rows)} events to check.")
 
